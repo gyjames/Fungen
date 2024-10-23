@@ -651,14 +651,16 @@ def correct_reads(args, outdir):
 	#print(len(reads_file_lst), reads_file_lst[-3], read_lst_lst[-3])
 	for cluster_i in range(len(reads_file_lst)):
 		read_id_lst, seq_lst = read_lst_lst[cluster_i], reads_file_lst[cluster_i]
-		if len(read_id_lst) < 5000:
+		complex_score = len(read_id_lst) * len(seq_lst[0])
+		#print(complex_score)
+		if complex_score < 2000 * 500:
 			read_info_mp.append((read_id_lst, seq_lst))
 		else:
 			cluster_start_time = time()
 			for corrected_read_lst in correct_seqs_MP(read_id_lst, seq_lst, threads):
 				corrected_read_cluster_lst.append(corrected_read_lst)
 			print("\033[31m[Correct large clusters]\033[0m", 'corrected cluster {}, time used: {}  s'.format(cluster_i, time() - cluster_start_time))
-
+	del read_lst_lst, reads_file_lst
 
 	print("\033[31m[Correct small clusters]\033[0m", 'correcting......')
 	cluster_start_time = time()
@@ -671,7 +673,7 @@ def correct_reads(args, outdir):
 			corrected_read_cluster_lst.append(corrected_read_lst)
 	corrected_read_cluster_lst.sort(key = lambda x:len(x), reverse = True)
 	
-	del read_lst_lst, reads_file_lst, read_info_mp, correct_clusters_mp_results
+	del read_info_mp, correct_clusters_mp_results
 	print("\033[31m[Correct small clusters]\033[0m", 'finished correct small clusters, time used: {}  s'.format(time() - cluster_start_time))	
 
 	read_name_index = {}
