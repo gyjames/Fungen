@@ -689,7 +689,7 @@ def correct_reads(args, outdir):
 			if read_id > 0:
 				read_name = read_name_index[read_id]
 			else:
-				read_name = ''.join((read_name_index[-read_id], 'Corr_Reverse'))
+				read_name = ''.join((read_name_index[-read_id], '|Corr_Reverse'))
 			cluster_results.append('{}\t{}\n'.format(cluster_i, read_name))
 			correct_results.append('@{}\n{}\n+\n{}\n'.format(read_name, read_seq, 'F' * len(read_seq)))
 			if len(cluster_represent_seqs) <= cluster_i:
