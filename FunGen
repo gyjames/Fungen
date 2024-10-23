@@ -1,0 +1,45 @@
+#!/data/software/conda/bin/python
+#!/usr/bin/python3
+import os,sys
+from time import time
+from script.add_parsers import add_parsers
+from script.get_minimizers import get_minimizers
+from script.cluster_reads_1st import cluster_reads_1st
+from script.cluster_reads_1st_combine import cluster_reads_1st_combine
+from script.cluster_reads_2st import cluster_reads_2st
+from script.cluster_reads_3st import cluster_reads_3st
+from script.correct_reads import correct_reads
+
+def main(args):
+	fq_name = args.f
+	file_dir = ''.join([f+'/' for f in fq_name.split('/')[:-1]])
+	file_name = args.f.split('/')[-1]
+	if args.o != 'Recent_dictionary':
+		target_dir = args.o
+		if target_dir != '/'and target_dir[-1] == '/':
+			target_dir = target_dir[:-1]
+		out_dir = ''.join((target_dir, '/FunGen_', file_name))
+	else:
+		out_dir = ''.join((file_dir, 'FunGen_', file_name))
+	out_name = out_dir.split('/')[-1]
+	folder_list = os.listdir(os.path.abspath(fq_name)[:-len(file_name)])
+
+	get_minimizers(args, out_dir)
+	cluster_reads_1st(args, out_dir)
+	cluster_reads_1st_combine(args, out_dir)
+	cluster_reads_2st(args, out_dir)
+	cluster_reads_3st(args, out_dir)
+	correct_reads(args, out_dir)
+
+
+if __name__=='__main__':
+	starttime=time()
+	if len(sys.argv) <=1:
+		print('\n','*'*31,'\nA \'fastq\' file must be specified!\n','*'*31,'\n\n')
+		os.system("{} -h".format(os.path.abspath(__file__)))
+		sys.exit()
+	parsers = add_parsers()
+	args = parsers.parse_args()
+	main(args)
+	print("\033[31m[Finished]\033[0m", 'Total time used: {}  s'.format(time() - starttime))
+			
