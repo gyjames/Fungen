@@ -23,13 +23,20 @@ def main(args):
 		out_dir = ''.join((file_dir, 'FunGen_', file_name))
 	out_name = out_dir.split('/')[-1]
 	folder_list = os.listdir(os.path.abspath(fq_name)[:-len(file_name)])
-
-	get_minimizers(args, out_dir)
-	cluster_reads_1st(args, out_dir)
-	cluster_reads_1st_combine(args, out_dir)
-	cluster_reads_2st(args, out_dir)
-	cluster_reads_3st(args, out_dir)
-	correct_reads(args, out_dir)
+	
+	try: result_folder_list = os.listdir(os.path.abspath(out_dir))
+	except: result_folder_list = []
+	continue_bool = bool(args.u)
+	if 'ref_seqs_1st.txt' not in result_folder_list or not  continue_bool:
+		get_minimizers(args, out_dir)
+		cluster_reads_1st(args, out_dir)
+		cluster_reads_1st_combine(args, out_dir)
+	if 'ref_seqs_2st.txt' not in result_folder_list or not  continue_bool:
+		cluster_reads_2st(args, out_dir)
+	if 'ref_seqs_3st.txt' not in result_folder_list or not  continue_bool:
+		cluster_reads_3st(args, out_dir)
+	if 'cluster_results.txt' not in result_folder_list or not  continue_bool:
+		correct_reads(args, out_dir)
 
 
 if __name__=='__main__':
