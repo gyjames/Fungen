@@ -341,7 +341,7 @@ def sort_minimizers_from_file(chunk_read_num, sorted_read_number, threads, outdi
 		for line in minimizer_lst_file:
 			minimizer, d, minimizer_bit = line.split()
 			minimizer_bit_dic[int(minimizer)] = int(minimizer_bit)
-	p = mp.Pool(processes = min(threads, 10), initializer = initializer_extract_sorted_minimizers_from_file(minimizer_bit_dic))
+	p = mp.Pool(processes = min(threads, 5), initializer = initializer_extract_sorted_minimizers_from_file(minimizer_bit_dic))
 	t = 0
 	with open('{}/name_num_record_sort.txt'.format(outdir)) as name_num_record_sort_file:
 		for line in name_num_record_sort_file:

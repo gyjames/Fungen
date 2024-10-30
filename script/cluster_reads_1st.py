@@ -9,20 +9,6 @@ import gzip
 import parasail
 import re
 
-k = 11
-w = 20
-
-#MG = nx.Graph()
-total_start_time = time()
-
-fqs_name = 'real_meta_trans_2M.fastq'
-threads = 10
-
-tl = 0
-
-fqs_name = 'mock_annotated_dataset_5M.fastq'
-
-
 
 def generate_minimizers(seq_info):
 	seq_num, seq_name_raw, seq, k, w = seq_info
@@ -220,7 +206,7 @@ def compare_file2file(minimizer_record_file1, minimizer_record_file2, outdir):
 			if query_mini_3mer in mini_mer_index:
 				match_count.update(list(set(mini_mer_index[query_mini_3mer])))
 		match_count_lst = list(match_count.most_common())
-		match_num_cutoff = 1 + int(0.1 * (len(list(set(mini_3mer_lst))) - discard_mer_num))
+		match_num_cutoff = 1 + int(0.2 * (len(list(set(mini_3mer_lst))) - discard_mer_num))
 
 		query_seq = seq_dic2[line_num]
 		query_7mer_set = set([query_seq[i : i + 7] for i in range(len(query_seq) - 7 + 1)])
@@ -232,7 +218,7 @@ def compare_file2file(minimizer_record_file1, minimizer_record_file2, outdir):
 				break
 			ref_seq = seq_dic1[ref_record_num]
 			dif_transcript_ratio = confirm_not_different_transcript(ref_seq, query_7mer_set)
-			if dif_transcript_ratio > 0.4:
+			if dif_transcript_ratio > 0.75:
 				#print('dif_transcript_ratio, ref_match_num', dif_transcript_ratio, ref_match_num, match_num_cutoff, query_name, ref_name_list[ref_record_num])
 				output_data_line.append('{}|{}|{}\t'.format(ref_name_list[ref_record_num], query_name, ref_match_num))
 			#print('{}|{}|{}\t'.format(ref_name_list[ref_record_num], query_name, ref_match_num))
@@ -253,7 +239,7 @@ def compare_file2file(minimizer_record_file1, minimizer_record_file2, outdir):
 			if query_mini_3mer in mini_mer_index:
 				match_count.update(list(set(mini_mer_index[query_mini_3mer])))
 		match_count_lstv = list(match_count.most_common())
-		match_num_cutoffv = 1 + int(0.1 * (len(list(set(mini_3mer_lst))) - discard_mer_num))
+		match_num_cutoffv = 1 + int(0.2 * (len(list(set(mini_3mer_lst))) - discard_mer_num))
 
 		query_seqv = seq_dic2[-line_num]
 		query_7mer_setv = set([query_seq[i : i + 7] for i in range(len(query_seqv) - 7 + 1)])
@@ -264,7 +250,7 @@ def compare_file2file(minimizer_record_file1, minimizer_record_file2, outdir):
 				break
 			ref_seqv = seq_dic1[ref_record_numv]
 			dif_transcript_ratiov = confirm_not_different_transcript(ref_seqv, query_7mer_setv)
-			if dif_transcript_ratiov > 0.4:
+			if dif_transcript_ratiov > 0.75:
 				#print('dif_transcript_ratiov, ref_match_num', dif_transcript_ratiov, ref_match_numv, match_num_cutoffv, len(list(set(mini_3mer_lst))), query_name, ref_name_list[ref_record_numv])
 				output_data_line.append('{}|{}|{}\t'.format(-ref_name_list[ref_record_numv], query_name, ref_match_numv))
 		if output_data_line != []:
@@ -472,7 +458,7 @@ def compare_file_self(minimizer_record_file1, r_n, outdir):
 
 		match_count_lst = list(match_count.most_common())
 		#print('match_info', len(list(set(mini_3mer_lst))), discard_mer_num)
-		match_num_cutoff = 1 + int(0.1 * (len(list(set(mini_3mer_lst))) - discard_mer_num))
+		match_num_cutoff = 1 + int(0.2 * (len(list(set(mini_3mer_lst))) - discard_mer_num))
 		for match_result in match_count_lst:
 			ref_record_num, ref_match_num = match_result
 			if ref_record_num == line_num:
@@ -481,7 +467,7 @@ def compare_file_self(minimizer_record_file1, r_n, outdir):
 				break
 			ref_seq = seq_dic[ref_record_num]
 			dif_transcript_ratio = confirm_not_different_transcript(ref_seq, query_7mer_set)
-			if dif_transcript_ratio > 0.4:
+			if dif_transcript_ratio > 0.75:
 				#print('dif_transcript_ratio, ref_match_num', dif_transcript_ratio, ref_match_num, match_num_cutoff, ref_name_list[line_num], ref_name_list[ref_record_num])
 				#if int(ref_name_list[line_num] / 100000) != int(ref_name_list[ref_record_num] / 100000):
 				#	print(seq_dic[line_num], seq_dic[ref_record_num])
@@ -503,7 +489,7 @@ def compare_file_self(minimizer_record_file1, r_n, outdir):
 			if query_mini_3mer in mini_mer_index:
 				match_count.update(list(set(mini_mer_index[query_mini_3mer])))
 		match_count_lstv = list(match_count.most_common())
-		match_num_cutoffv = 1 + int(0.1 * (len(list(set(mini_3mer_lst))) - discard_mer_num))
+		match_num_cutoffv = 1 + int(0.2 * (len(list(set(mini_3mer_lst))) - discard_mer_num))
 		#print('match_info', len(list(set(mini_3mer_lst))), discard_mer_num)
 
 		query_seqv = seq_dic[-line_num]
@@ -515,7 +501,7 @@ def compare_file_self(minimizer_record_file1, r_n, outdir):
 				break
 			ref_seqv = seq_dic[ref_record_numv]
 			dif_transcript_ratiov = confirm_not_different_transcript(ref_seqv, query_7mer_set)
-			if dif_transcript_ratiov > 0.4:
+			if dif_transcript_ratiov > 0.75:
 				#print('dif_transcript_ratiov, ref_match_num', dif_transcript_ratiov, ref_match_numv, match_num_cutoffv, len(list(set(mini_3mer_lst))), ref_name_list[line_num], ref_name_list[ref_record_numv])
 				reads_in_cluster.append((-ref_record_numv, minimizer_list[ref_record_numv - 1], ref_match_numv))
 
@@ -551,15 +537,9 @@ def compare_file_self(minimizer_record_file1, r_n, outdir):
 
 
 def cluster_reads_1st(args, outdir):
+	threads = args.t
 	os.system("rm -rf {}/match_record".format(outdir))
 	os.mkdir('{}/match_record'.format(outdir))
-
-	#compare_file_self(14, 1)
-	#compare_file_self(14, 2)
-	#compare_file_self(15, 1)
-	#compare_file_self(15, 2)
-	#compare_file2file(14, 15)
-	#sys.exit()
 
 	print("\033[31m**************\033[0m", 'Clustering using minimizer-3mer', "\033[31m**************\033[0m")
 

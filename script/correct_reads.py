@@ -11,6 +11,33 @@ import re
 from time import time
 
 
+def sort_best_seq(read_id_lst, read_seq_lst):
+	seq_lst = [(read_id_lst[read_i], read_seq_lst[read_i]) for read_i in range(len(read_id_lst))]
+	seq_lst.sort(key = lambda x:len(x[1]), reverse = True)
+	seq_lst_len = len(seq_lst)
+	kmer_dic = {}
+	for seq_name, seq in seq_lst[: min(10 ** 3, len(seq_lst))]:
+		for k in range(len(seq) - 10 + 1):
+			kmer = seq[k : k + 10]
+			if kmer not in kmer_dic:
+				kmer_dic[kmer] = 0
+			kmer_dic[kmer] += 1
+	seq_lst_scored = []
+	seq_number = 0
+	for seq_name, seq in seq_lst:
+		seq_number += 1
+		if seq_number < min(10 ** 3, len(seq_lst)):
+			seq_score = sum([kmer_dic[seq[k : k + 10]] for k in range(len(seq) - 10 + 1) if seq[k : k + 10] in kmer_dic])
+			seq_lst_scored.append((seq_name, seq, seq_score))
+		else:
+			seq_score = len(seq)
+			seq_lst_scored.append((seq_name, seq, seq_score))
+	seq_lst_scored.sort(key = lambda x:x[2], reverse = True)
+	best_seq_name, best_seq, _ = seq_lst_scored[0]
+	read_id_lst_sorted = [read_id for read_id, read_seq, seq_score in seq_lst_scored]
+	read_seq_lst_sorted = [read_seq for read_id, read_seq, seq_score in seq_lst_scored]
+	return read_id_lst_sorted, read_seq_lst_sorted
+
 def two_seq_similarity(sequence1, sequence2):
 	aaset = ''.join([i for i in list(set(sequence1+sequence2))])
 	aamatrix = parasail.matrix_create(aaset,2,-2)
@@ -66,7 +93,64 @@ def two_seq_similarity(sequence1, sequence2):
 	
 	#print(nt_match/(nt_match+nt_mismatch), nt_match, nt_match+nt_mismatch)
 	return nt_match/(nt_match+nt_mismatch)
+def two_seq_similarity_equal_max(sequence1, sequence2):
+	aaset = ''.join([i for i in list(set(sequence1+sequence2))])
+	aamatrix = parasail.matrix_create(aaset,2,-2)
+	parasail_result = parasail.sg_trace_scan_16(sequence1,sequence2,5,1,aamatrix)
+	parasail_cigar = str(parasail_result.cigar.decode,'utf-8')
+	result = re.split(r'[=DXSMI]+', parasail_cigar)
+	cigar_result,i = [],0
+	for cigar_num in result[:-1]:
+		i+=len(cigar_num)+1
+		cigar_result.append((int(cigar_num),parasail_cigar[i-1]))
+	#print(cigar_result)
+	nt_match,nt_mismatch = 0,0
+	while True:
+		if cigar_result[0][-1] != '=':
+			cigar_result.remove(cigar_result[0])
+		if len(cigar_result) == 0:
+			break
+		if cigar_result[-1][-1] != '=':
+			cigar_result.remove(cigar_result[-1])
+		if len(cigar_result) == 0:
+			break
+		if cigar_result[0][-1] == '=' and cigar_result[-1][-1] == '=':
+			break
+	#print(cigar_result)
+	if len(cigar_result) == 0:
+		ll = 0
+	else:
+		cigar_result.sort(key=lambda x:x[0], reverse = True)
+		ll = 0
+		for l,m in cigar_result:
+			if m == '=':
+				ll = l
+				break
+	sequence2_in_align = 0
+	cig_i = 0
+	longest_qual = 0
+	for cig in cigar_result:
+		cig_i += 1
+		if cig[1] == '=':
+			if cig[0] > longest_qual:
+				longest_qual = cig[0]
+			nt_match += cig[0]
+		else:
+			if cig[0] < 10:
+				nt_mismatch += cig[0]
 
+
+		if cig[1] == '=' or cig[1] == 'I':
+			sequence2_in_align += cig[0]
+	if nt_match+nt_mismatch == 0:
+		return 0, 0
+	#if nt_match < len(sequence1)/3 or nt_match < len(sequence2)/3:
+		#return 0
+	if nt_match < 20:
+		return 0, 0
+
+	#print(nt_match/(nt_match+nt_mismatch), nt_match, nt_match+nt_mismatch)
+	return nt_match/(nt_match+nt_mismatch), longest_qual
 
 def score_sequence(seq_lst):
 	seq_lst.sort(key = lambda x:len(x[1]), reverse = True)
@@ -182,7 +266,7 @@ def identify_sv_sites(seq_aln_matrix):
 						same_kmer_lst.append(sv_kmer)
 			if len(same_kmer_lst) > 1:
 				same_kmer_count = Counter(same_kmer_lst).most_common(1)
-				if same_kmer_count[0][1] > max(1, len(site_lst_clean) * 0.01):#more than 2 kmers sopport and abundance > 1 %
+				if same_kmer_count[0][1] > max(1, len(site_lst_clean) * 0.05):#more than 2 kmers sopport and abundance > 5 %
 					sv_site_lst.append((site_nt, sv_nt_lst))
 		if len(sv_site_lst) > 1:
 			sv_lst.append((site_lo, sv_site_lst))
@@ -261,6 +345,10 @@ def purify_corelated_sites(seq_aln_matrix, corelated_sites):
 
 
 def extract_corelated_sites(seq_aln_matrix, sv_lst, heaviest_path):
+	sv_num = len(sv_lst)
+	#print('sv_num', sv_num)
+	sv_num_half = int(sv_num/2)
+	#sv_lst = sv_lst[max(0, sv_num_half - 100): min(sv_num_half + 100, sv_num)]#use as much as 200 sv sites
 	heaviest_path_set = set(heaviest_path)
 	corelated_sites = []
 	for sv_site_i in range(len(sv_lst)):
@@ -275,7 +363,7 @@ def extract_corelated_sites(seq_aln_matrix, sv_lst, heaviest_path):
 					read_site2 = (site_lo2, nt_site2)
 					if read_site1 in heaviest_path_set or read_site2 in heaviest_path_set:
 						continue
-					if site_lo2 - site_lo1 <= 4:
+					if site_lo2 - site_lo1 <= 6:
 						continue
 					overlapped_read_num = len(read_lst1 + read_lst2) - len(list(set(read_lst1 + read_lst2)))
 					if overlapped_read_num >= int(0.3 * max(len(read_lst1), len(read_lst2))) + 1 and overlapped_read_num >= int(0.9 * min(len(read_lst1), len(read_lst2))) + 1:
@@ -341,13 +429,23 @@ def extract_max_flow(seq_aln_matrix, sv_lst):
 	return heaviest_path_lst
 
 
-def get_consensus_seq(seq_aln_matrix):
+def get_consensus_seq(seq_aln_matrix, sv_lst):
+	sv_consensus_dic = {}
+	for site_i, site_nt_lst in sv_lst:
+		site_nt_lst.sort(key = lambda x:len(x[1]), reverse = True)
+		sv_consensus_dic[site_i] = site_nt_lst[0][0]
 	seq_consensus = []
 	for site_lo in range(len(seq_aln_matrix[0])):
-		site_nt_lst = [seq_aln[site_lo] for seq_aln in seq_aln_matrix if seq_aln[site_lo] != '|']
-
-		site_nt_most_freq = list(Counter(site_nt_lst).most_common())[0][0]
-		seq_consensus.append(site_nt_most_freq)
+		if site_lo in sv_consensus_dic:
+			site_nt_most_freq = sv_consensus_dic[site_lo]
+			seq_consensus.append(site_nt_most_freq)
+		if site_lo not in sv_consensus_dic:
+			site_nt_lst = [seq_aln[site_lo] for seq_aln in seq_aln_matrix if seq_aln[site_lo] != '|']
+			if len(site_nt_lst) == 0:
+				site_nt_most_freq = '-'
+			else:
+				site_nt_most_freq = list(Counter(site_nt_lst).most_common())[0][0]
+			seq_consensus.append(site_nt_most_freq)
 	return seq_consensus
 
 
@@ -395,12 +493,13 @@ def classify_reads(heaviest_path_lst, aln_seq_id_lst, seq_aln_matrix):
 	info_len = len(informative_site_lst[0])
 
 	path_reads_dic = {i:[] for i in range(path_num)}
-
 	for read_i in range(len(seq_aln_matrix)):
+		#print('read_i', read_i)
 		read_id = aln_seq_id_lst[read_i]
 		read_aln_seq_lst = seq_aln_matrix[read_i]
 		read_path_score = []
 		for path_i in range(path_num):
+			#print('path_i', path_i)
 			effc_num = 0
 			score_i = 0
 			for path_site_i in range(info_len):
@@ -410,29 +509,31 @@ def classify_reads(heaviest_path_lst, aln_seq_id_lst, seq_aln_matrix):
 					effc_num += 1
 				if site_in_read == site_nt:
 					score_i += 1
+			#print(score_i, effc_num)
+			#if (score_i + 1) / (effc_num + 1) > 0.8 and score_i >= 2:
 			read_path_score.append((path_i, score_i, effc_num))
 		read_path_score.sort(key = lambda x:x[1], reverse = True)
-		#print(read_path_score)
-		path_reads_dic[read_path_score[0][0]].append(read_i)
+		#print('read_path_score', read_path_score)
+		if read_path_score != []:
+			path_reads_dic[read_path_score[0][0]].append(read_i)
 	cluster_include_ref = []
 	cluster_include_ref_aln = []
 	cluster_include_ref_ord = []
 	cluster_heaviest_path = []
-	#print(path_reads_dic)
-	for _, path_i in enumerate(path_reads_dic):
-		path_reads_ord = path_reads_dic[path_i]
-		if 0 in set(path_reads_ord):
-			cluster_include_ref_ord = path_reads_ord
-			cluster_include_ref = [aln_seq_id_lst[read_i] for read_i in path_reads_dic[path_i]]
-			cluster_include_ref_aln = [seq_aln_matrix[read_i] for read_i in path_reads_dic[path_i]]
-			cluster_heaviest_path = heaviest_path_lst[path_i]
-			break
+	#print('path_reads_dic', path_reads_dic)
+	path_reads_lst = [path_reads_dic[path_i] for  _, path_i in enumerate(path_reads_dic)]
+	path_reads_lst.sort(key = lambda x:len(x), reverse = True)
+	path_reads_ord = path_reads_lst[0]
+	cluster_include_ref_ord = path_reads_ord
+	cluster_include_ref = [aln_seq_id_lst[read_i] for read_i in path_reads_dic[path_i]]
+	cluster_include_ref_aln = [seq_aln_matrix[read_i] for read_i in path_reads_dic[path_i]]
+	cluster_heaviest_path = heaviest_path_lst[path_i]
 			
 	return cluster_include_ref, cluster_include_ref_aln, cluster_include_ref_ord, cluster_heaviest_path
 
 def polish_sequencing_error(cluster_include_ref, cluster_include_ref_aln):
-	seq_consensus = get_consensus_seq(cluster_include_ref_aln[: min(200, len(cluster_include_ref))])
 	sv_lst = identify_sv_sites(cluster_include_ref_aln[: min(200, len(cluster_include_ref))])
+	seq_consensus = get_consensus_seq(cluster_include_ref_aln[: min(200, len(cluster_include_ref))], sv_lst)
 	heaviest_path = extract_heaviest_path(sv_lst)
 	heaviest_path_dic = {site_i: site_nt for site_i, site_nt in heaviest_path}
 	corrected_seq_consensus = []
@@ -448,11 +549,18 @@ def polish_sequencing_error(cluster_include_ref, cluster_include_ref_aln):
 		read_id_i = cluster_include_ref[read_i]
 		read_seq_aln = cluster_include_ref_aln[read_i]
 		corrected_read_aln = []
+		aln_num = 0
+		match_num = 0
 		for site_i in range(len(read_seq_aln)):
 			if read_seq_aln[site_i] != '|':
+				aln_num += 1
+				if corrected_seq_consensus[site_i] == read_seq_aln[site_i]:
+					match_num += 1
 				if corrected_seq_consensus[site_i] != '-':
 					corrected_read_aln.append(corrected_seq_consensus[site_i])
-		corrected_reads_include_ref.append((read_id_i, ''.join(corrected_read_aln)))
+		#print(match_num, aln_num)
+		if (match_num + 1) / (aln_num + 1) > 0.7:
+			corrected_reads_include_ref.append((read_id_i, ''.join(corrected_read_aln)))
 	#print(corrected_reads_include_ref)
 	return corrected_reads_include_ref
 
@@ -460,116 +568,183 @@ def recombine_corrected_read_cluster(corrected_read_cluster_lst):
 	corrected_read_cluster_lst_recombine = []
 	for read_cluster in corrected_read_cluster_lst:
 		#print(read_cluster[0][1])
-		best_hit_cluster, best_similarity = 0, 0
+		best_hit_cluster, best_similarity, longest_equal = 0, 0, 0
 		for recombined_read_cluster_i in range(len(corrected_read_cluster_lst_recombine)):
 			recombined_read_cluster = corrected_read_cluster_lst_recombine[recombined_read_cluster_i]
-			similarity = two_seq_similarity(read_cluster[0][1], recombined_read_cluster[0][1])
+			similarity, equal_max = two_seq_similarity_equal_max(read_cluster[0][1], recombined_read_cluster[0][1])
 			if similarity > best_similarity:
 				best_similarity = similarity
 				best_hit_cluster = recombined_read_cluster_i
-		if best_similarity > 0.99:
+				longest_equal = equal_max
+		if best_similarity > 0.99 or longest_equal > 100:
 			corrected_read_cluster_lst_recombine[best_hit_cluster] += read_cluster
 		else:
 			corrected_read_cluster_lst_recombine.append(read_cluster)
 		#print(best_similarity)
 	return corrected_read_cluster_lst_recombine
+
+
+def compare_represents_mp(rep_info):
+	cluster_n, repseq_n, cluster_m, repseq_m = rep_info
+	similarity, equal_max = two_seq_similarity_equal_max(repseq_n, repseq_m)
+	return cluster_n, cluster_m, similarity, equal_max
+
+def recombine_corrected_read_cluster_mp(corrected_read_cluster_lst, threads):
+	corrected_read_cluster_lst_recombine = []
+	compare_info_mp = []
+	for n in range(len(corrected_read_cluster_lst)):
+		for m in range(len(corrected_read_cluster_lst)):
+			compare_info_mp.append((n, corrected_read_cluster_lst[n][0][1], m, corrected_read_cluster_lst[m][0][1]))
+	
+	p = mp.Pool(processes = threads)
+	rep_compare_results = p.map(compare_represents_mp, compare_info_mp)
+	p.close()
+	p.join()
+
+	compare_dic = {}
+	for cluster_n, cluster_m, similarity, equal_max in rep_compare_results:
+		if cluster_n not in compare_dic:
+			compare_dic[cluster_n] = {}
+		compare_dic[cluster_n][cluster_m] = (similarity, equal_max)
+	raw_i_dic = {}
+	for read_cluster_i in range(len(corrected_read_cluster_lst)):
+		read_cluster = corrected_read_cluster_lst[read_cluster_i]
+		#print(read_cluster[0][1])
+		best_hit_cluster, best_similarity, longest_equal = 0, 0, 0
+		for recombined_read_cluster_i in range(len(corrected_read_cluster_lst_recombine)):
+			raw_recombined_read_cluster_i = raw_i_dic[recombined_read_cluster_i]
+			similarity, equal_max = compare_dic[read_cluster_i][raw_recombined_read_cluster_i]
+			if similarity > best_similarity:
+				best_similarity = similarity
+				best_hit_cluster = recombined_read_cluster_i
+				longest_equal = equal_max
+		if best_similarity > 0.99 or longest_equal > 100:
+			corrected_read_cluster_lst_recombine[best_hit_cluster] += read_cluster
+		else:
+			corrected_read_cluster_lst_recombine.append(read_cluster)
+			raw_i_dic[len(corrected_read_cluster_lst_recombine) - 1] = read_cluster_i
+		#print(best_similarity)
+	return corrected_read_cluster_lst_recombine
 						
 
-def correct_seqs_singleT(seq_id_lst, seq_lst):
+def correct_seqs_singleMP(seq_info):
+	start_time = time()
+	seq_id_lst, seq_lst = seq_info
 	corrected_read_cluster_lst = []
+	correct_bool = False
 	while len(seq_id_lst) >= 3:#Max flow to extract and correct the reads belong to heaviest_path
-		start_time = time()
 		aln_seq_id_lst, seq_aln_matrix = matrix_seq(seq_id_lst, seq_lst)
 		sv_lst = identify_sv_sites(seq_aln_matrix)
+		#print(sv_lst)
 		heaviest_path_lst = extract_max_flow(seq_aln_matrix, sv_lst)
 		corrected_read_clust = classify_reads(heaviest_path_lst, aln_seq_id_lst, seq_aln_matrix)
-		seq_consensus = get_consensus_seq(seq_aln_matrix)
+		#print('corrected_read_clust', corrected_read_clust)
+		seq_consensus = get_consensus_seq(seq_aln_matrix, sv_lst)
 		cluster_include_ref, cluster_include_ref_aln, cluster_include_ref_ord, cluster_heaviest_path = classify_reads(heaviest_path_lst, aln_seq_id_lst, seq_aln_matrix)
 		if len(cluster_include_ref) >= 3:
-			corrected_read_cluster_lst.append(polish_sequencing_error(cluster_include_ref, cluster_include_ref_aln))
+			polished_read_lst = polish_sequencing_error(cluster_include_ref, cluster_include_ref_aln)
+			corrected_read_cluster_lst.append(polished_read_lst)
+		elif len(cluster_include_ref) < 3:
+			polished_read_lst = []
 		#print(cluster_include_ref, cluster_include_ref_ord)
-		cluster_include_ref_ord_set = set(cluster_include_ref_ord)
-		seq_id_lst = [seq_id_lst[read_i] for read_i in range(len(seq_id_lst)) if read_i not in cluster_include_ref_ord_set]
-		seq_lst = [seq_lst[read_i] for read_i in range(len(seq_lst)) if read_i not in cluster_include_ref_ord_set]
+		if len(polished_read_lst) <= 3:
+			break
+		polished_read_set = set([read_id for read_id,seq in polished_read_lst])
+		seq_lst = [seq_lst[read_i] for read_i in range(len(seq_id_lst)) if seq_id_lst[read_i] not in polished_read_set]
+		seq_id_lst = [seq_id_lst[read_i] for read_i in range(len(seq_id_lst)) if seq_id_lst[read_i] not in polished_read_set]
+		if len(seq_id_lst) > 0:
+			seq_id_lst, seq_lst = sort_best_seq(seq_id_lst, seq_lst)
 	corrected_read_cluster_lst_recombine = recombine_corrected_read_cluster(corrected_read_cluster_lst)
+	#print(time() - start_time)
 	return corrected_read_cluster_lst_recombine
 
-def correct_seqs_singleMP(seq_info):
+
+
+def correct_seqs_singleT(seq_info):
 	seq_id_lst, seq_lst = seq_info
 	corrected_read_cluster_lst = []
 	while len(seq_id_lst) >= 3:#Max flow to extract and correct the reads belong to heaviest_path
-		start_time = time()
-		aln_seq_id_lst, seq_aln_matrix = matrix_seq(seq_id_lst, seq_lst)
-		sv_lst = identify_sv_sites(seq_aln_matrix)
-		heaviest_path_lst = extract_max_flow(seq_aln_matrix, sv_lst)
-		corrected_read_clust = classify_reads(heaviest_path_lst, aln_seq_id_lst, seq_aln_matrix)
-		seq_consensus = get_consensus_seq(seq_aln_matrix)
-		cluster_include_ref, cluster_include_ref_aln, cluster_include_ref_ord, cluster_heaviest_path = classify_reads(heaviest_path_lst, aln_seq_id_lst, seq_aln_matrix)
-		if len(cluster_include_ref) >= 3:
-			corrected_read_cluster_lst.append(polish_sequencing_error(cluster_include_ref, cluster_include_ref_aln))
-		#print(cluster_include_ref, cluster_include_ref_ord)
-		cluster_include_ref_ord_set = set(cluster_include_ref_ord)
-		seq_id_lst = [seq_id_lst[read_i] for read_i in range(len(seq_id_lst)) if read_i not in cluster_include_ref_ord_set]
-		seq_lst = [seq_lst[read_i] for read_i in range(len(seq_lst)) if read_i not in cluster_include_ref_ord_set]
+		#seq_chunk_num = int(len(seq_id_lst) / threads) + 1
+		seq_chunk_num = 10000
+		max_threads = int(((len(seq_id_lst) - 1)) / seq_chunk_num)
+		if len(seq_id_lst) - max_threads * seq_chunk_num < 5000:
+			max_threads -= 1
+		max_threads = max(max_threads, 1)
+		for thread_i in range(max_threads):
+			if thread_i != max_threads - 1:
+				seq_id_lst_chunk = seq_id_lst[thread_i * seq_chunk_num: min((thread_i + 1) * seq_chunk_num, len(seq_id_lst))]
+				seq_lst_chunk = seq_lst[thread_i * seq_chunk_num: min((thread_i + 1) * seq_chunk_num, len(seq_lst))]
+				se_id_lst_chunk, seq_lst_chunk = sort_best_seq(seq_id_lst_chunk, seq_lst_chunk)
+			elif thread_i == max_threads - 1:
+				seq_id_lst_chunk = seq_id_lst[thread_i * seq_chunk_num: len(seq_id_lst)]
+				seq_lst_chunk = seq_lst[thread_i * seq_chunk_num: len(seq_lst)]
+				seq_id_lst_chunk, seq_lst_chunk = sort_best_seq(seq_id_lst_chunk, seq_lst_chunk)
+			seq_info = (seq_id_lst_chunk, seq_lst_chunk)
+			seq_correct_results_lst = correct_seqs_singleMP(seq_info)
+			correct_read_id_set = set([])
+			corrected_bool = False
+			#print(seq_correct_results_lst)
+			for corrected_read_cluster in seq_correct_results_lst:
+				if len(corrected_read_cluster) >=3:
+					corrected_bool = True
+					corrected_read_cluster_lst.append(corrected_read_cluster)
+					correct_read_id_set.update([read_id for read_id, seq in corrected_read_cluster])
+		seq_lst = [seq_lst[read_i] for read_i in range(len(seq_id_lst)) if seq_id_lst[read_i] not in correct_read_id_set]
+		seq_id_lst = [read_id for read_id in seq_id_lst if read_id not in correct_read_id_set]
+	#	print('#', len(corrected_read_cluster_lst), corrected_bool)
+		if not corrected_bool:
+			break
+	#	print('remain', len(seq_id_lst))
 	corrected_read_cluster_lst_recombine = recombine_corrected_read_cluster(corrected_read_cluster_lst)
 	return corrected_read_cluster_lst_recombine
 
 
-def classify_reads_by_mp(seq_chunk_info):
-	thread_i, seq_chunk_num, seq_id_lst_chunk, seq_lst_chunk = seq_chunk_info
-	aln_seq_id_lst, seq_aln_matrix = matrix_seq(seq_id_lst_chunk, seq_lst_chunk)
-	sv_lst = identify_sv_sites(seq_aln_matrix)
-	heaviest_path_lst = extract_max_flow(seq_aln_matrix, sv_lst)
-	corrected_read_clust = classify_reads(heaviest_path_lst, aln_seq_id_lst, seq_aln_matrix)
-	cluster_include_ref, cluster_include_ref_aln, cluster_include_ref_ord, cluster_heaviest_path = classify_reads(heaviest_path_lst, aln_seq_id_lst, seq_aln_matrix)
-	if thread_i == 0:
-		return thread_i, cluster_include_ref, cluster_include_ref_aln, cluster_include_ref_ord
-	else:
-		cluster_include_ref_ord_p = [od_i - 1 + thread_i * seq_chunk_num for od_i in cluster_include_ref_ord]
-		return thread_i, cluster_include_ref[1:], cluster_include_ref_aln[1:], cluster_include_ref_ord_p
 
 def correct_seqs_MP(seq_id_lst, seq_lst, threads):
 	corrected_read_cluster_lst = []
 	while len(seq_id_lst) >= 3:#Max flow to extract and correct the reads belong to heaviest_path
 		#seq_chunk_num = int(len(seq_id_lst) / threads) + 1
-		seq_chunk_num = 500
+		#print(len(seq_id_lst))
+		seq_chunk_num = 10000
 		max_threads = int(((len(seq_id_lst) - 1)) / seq_chunk_num)
-		if len(seq_id_lst) - max_threads * seq_chunk_num < 250:
+		if len(seq_id_lst) - max_threads * seq_chunk_num < 5000:
 			max_threads -= 1
 		max_threads = max(max_threads, 1)
 		seq_mp_info = []
 		for thread_i in range(max_threads):
 			if thread_i != max_threads - 1:
-				seq_id_lst_chunk = seq_id_lst[max(1, thread_i * seq_chunk_num): min((thread_i + 1) * seq_chunk_num, len(seq_id_lst))]
-				seq_id_lst_chunk = [seq_id_lst[0]] + seq_id_lst_chunk
-				seq_lst_chunk = seq_lst[max(1, thread_i * seq_chunk_num): min((thread_i + 1) * seq_chunk_num, len(seq_lst))]
-				seq_lst_chunk = [seq_lst[0]] + seq_lst_chunk
-				seq_mp_info.append((thread_i, seq_chunk_num, seq_id_lst_chunk, seq_lst_chunk))
+				seq_id_lst_chunk = seq_id_lst[thread_i * seq_chunk_num: min((thread_i + 1) * seq_chunk_num, len(seq_id_lst))]
+				seq_lst_chunk = seq_lst[thread_i * seq_chunk_num: min((thread_i + 1) * seq_chunk_num, len(seq_lst))]
+				seq_id_lst_chunk, seq_lst_chunk = sort_best_seq(seq_id_lst_chunk, seq_lst_chunk)
+				seq_mp_info.append((seq_id_lst_chunk, seq_lst_chunk))
 			elif thread_i == max_threads - 1:
-				seq_id_lst_chunk = seq_id_lst[max(1, thread_i * seq_chunk_num): len(seq_id_lst)]
-				seq_id_lst_chunk = [seq_id_lst[0]] + seq_id_lst_chunk
-				seq_lst_chunk = seq_lst[max(1, thread_i * seq_chunk_num): len(seq_lst)]
-				seq_lst_chunk = [seq_lst[0]] + seq_lst_chunk
-				seq_mp_info.append((thread_i, seq_chunk_num, seq_id_lst_chunk, seq_lst_chunk))
+				seq_id_lst_chunk = seq_id_lst[thread_i * seq_chunk_num: len(seq_id_lst)]
+				seq_lst_chunk = seq_lst[thread_i * seq_chunk_num: len(seq_lst)]
+				seq_id_lst_chunk, seq_lst_chunk = sort_best_seq(seq_id_lst_chunk, seq_lst_chunk)
+				seq_mp_info.append((seq_id_lst_chunk, seq_lst_chunk))
 		p = mp.Pool(processes = min(threads, max_threads))
-		seq_classify_results_lst = p.map(classify_reads_by_mp, seq_mp_info)
+		seq_correct_results_lst = p.map(correct_seqs_singleMP, seq_mp_info)
 		p.close()
 		p.join()
-
-		seq_classify_results_lst.sort(key = lambda x:x[0])
-		cluster_include_ref, cluster_include_ref_aln, cluster_include_ref_ord = [], [], []
-		for thead_i, cluster_include_ref_chunk, cluster_include_ref_aln_chunk, cluster_include_ref_ord_chunk in seq_classify_results_lst:
-			cluster_include_ref += cluster_include_ref_chunk
-			cluster_include_ref_aln += cluster_include_ref_aln_chunk
-			cluster_include_ref_ord += cluster_include_ref_ord_chunk
-		if len(cluster_include_ref) >= 3:
-			corrected_read_cluster_lst.append(polish_sequencing_error(cluster_include_ref, cluster_include_ref_aln))
-		#print(cluster_include_ref, cluster_include_ref_ord)
-		cluster_include_ref_ord_set = set(cluster_include_ref_ord)
-		seq_id_lst = [seq_id_lst[read_i] for read_i in range(len(seq_id_lst)) if read_i not in cluster_include_ref_ord_set]
-		seq_lst = [seq_lst[read_i] for read_i in range(len(seq_lst)) if read_i not in cluster_include_ref_ord_set]
-		#print('remain', len(seq_id_lst), len(cluster_include_ref_ord))
-	corrected_read_cluster_lst_recombine = recombine_corrected_read_cluster(corrected_read_cluster_lst)
+		correct_read_id_set = set([])
+		corrected_bool = False
+		for corrected_read_cluster_lst_chunk in seq_correct_results_lst:
+			for corrected_read_cluster in corrected_read_cluster_lst_chunk:
+				if len(corrected_read_cluster) >=3:
+					corrected_bool = True
+					corrected_read_cluster_lst.append(corrected_read_cluster)
+					correct_read_id_set.update([read_id for read_id, seq in corrected_read_cluster])
+		if not corrected_bool:
+			break
+		seq_lst = [seq_lst[read_i] for read_i in range(len(seq_id_lst)) if seq_id_lst[read_i] not in correct_read_id_set]
+		seq_id_lst = [read_id for read_id in seq_id_lst if read_id not in correct_read_id_set]
+		#print('remain', len(seq_id_lst))
+	#print(len(corrected_read_cluster_lst))
+	#print('combine')
+	combine_time = time()
+	#corrected_read_cluster_lst_recombine = recombine_corrected_read_cluster(corrected_read_cluster_lst)
+	corrected_read_cluster_lst_recombine = recombine_corrected_read_cluster_mp(corrected_read_cluster_lst, threads)
+	#print('combine_finish', time() - combine_time)
 	return corrected_read_cluster_lst_recombine
 
 
@@ -643,39 +818,50 @@ def correct_reads(args, outdir):
 	threads = args.t
 	read_chunk_size = args.c
 	read_lst_lst = get_read_lst(outdir)
-	#print(len(read_lst_lst))
+	#read_lst_lst = read_lst_lst[0 : 3]#use for test
 	corrected_read_cluster_lst = []
-	cluster_i = 0
-	reads_file_lst = extract_reads_from_files(read_lst_lst,  read_chunk_size)
-	read_info_mp = []
-	#print(len(reads_file_lst), reads_file_lst[-3], read_lst_lst[-3])
-	for cluster_i in range(len(reads_file_lst)):
-		read_id_lst, seq_lst = read_lst_lst[cluster_i], reads_file_lst[cluster_i]
-		complex_score = len(read_id_lst) * len(seq_lst[0])
-		#print(complex_score)
-		if complex_score < 2000 * 500:
-			read_info_mp.append((read_id_lst, seq_lst))
-		else:
+	read_lst_lst_chunk = []
+	read_num_chunk = 0
+	chunk_num = 0
+	for cluster_n in range(len(read_lst_lst)):
+		read_num_chunk += len(read_lst_lst[cluster_n])
+		read_lst_lst_chunk.append(read_lst_lst[cluster_n])
+		if read_num_chunk >= 10 ** 6 or cluster_n + 1 == len(read_lst_lst) or len(read_lst_lst_chunk) >= 10 ** 5:
+			#print('current_chunk', cluster_n)
+			reads_file_lst_chunk = extract_reads_from_files(read_lst_lst_chunk,  read_chunk_size)
+			chunk_num += 1
+			read_info_mp = []
+			#print(len(reads_file_lst), reads_file_lst[-3], read_lst_lst[-3])
+			for cluster_i in range(len(reads_file_lst_chunk)):
+				read_id_lst, seq_lst = read_lst_lst_chunk[cluster_i], reads_file_lst_chunk[cluster_i]
+				complex_score = len(read_id_lst) * len(seq_lst[0])
+				#print(complex_score)
+				if complex_score < 100000 * 100:
+				#if True:
+					read_info_mp.append((complex_score, read_id_lst, seq_lst))
+				else:
+					cluster_start_time = time()
+					for corrected_read_lst in correct_seqs_MP(read_id_lst, seq_lst, threads):
+						corrected_read_cluster_lst.append(corrected_read_lst)
+					print("\033[31m[Correct large clusters]\033[0m", 'corrected cluster {}, time used: {}  s'.format(cluster_i + cluster_n, time() - cluster_start_time))
+			del read_lst_lst_chunk, reads_file_lst_chunk
+			read_info_mp.sort(key = lambda x:x[0], reverse = True)
+			read_info_mp = [(read_id_lst, seq_lst) for complex_score, read_id_lst, seq_lst in read_info_mp]
+			print("\033[31m[Correct small clusters]\033[0m", 'correcting chunk {}'.format(chunk_num))
 			cluster_start_time = time()
-			for corrected_read_lst in correct_seqs_MP(read_id_lst, seq_lst, threads):
-				corrected_read_cluster_lst.append(corrected_read_lst)
-			print("\033[31m[Correct large clusters]\033[0m", 'corrected cluster {}, time used: {}  s'.format(cluster_i, time() - cluster_start_time))
-	del read_lst_lst, reads_file_lst
-
-	print("\033[31m[Correct small clusters]\033[0m", 'correcting......')
-	cluster_start_time = time()
-	p = mp.Pool(processes = threads)
-	correct_clusters_mp_results = p.map(correct_seqs_singleMP, read_info_mp)
-	p.close()
-	p.join()
-	for correct_clusters in correct_clusters_mp_results:
-		for corrected_read_lst in correct_clusters :
-			corrected_read_cluster_lst.append(corrected_read_lst)
+			p = mp.Pool(processes = threads)
+			correct_clusters_mp_results = p.map(correct_seqs_singleT, read_info_mp)
+			p.close()
+			p.join()
+			for correct_clusters in correct_clusters_mp_results:
+				for corrected_read_lst in correct_clusters :
+					corrected_read_cluster_lst.append(corrected_read_lst)
+			del read_info_mp, correct_clusters_mp_results
+			print("\033[31m[Correct small clusters]\033[0m", 'finished correct small clusters, time used: {}  s'.format(time() - cluster_start_time))
+			read_num_chunk = 0
+			read_lst_lst_chunk = []
+			reads_file_lst_chunk = []	
 	corrected_read_cluster_lst.sort(key = lambda x:len(x), reverse = True)
-	
-	del read_info_mp, correct_clusters_mp_results
-	print("\033[31m[Correct small clusters]\033[0m", 'finished correct small clusters, time used: {}  s'.format(time() - cluster_start_time))	
-
 	read_name_index = {}
 	with open('{}/name_num_record.txt'.format(outdir)) as read_name_record_data:
 		for line in read_name_record_data:

@@ -11,5 +11,6 @@ def add_parsers():
 	parsers.add_argument('-o', type = str, default = 'Recent_dictionary', help = 'Output folder')
 	parsers.add_argument('-c', type = int, default = 10 ** 5, help = 'Read number in each chunk')
 	parsers.add_argument('-l', dest = 'ml', type = int, default = 30, help = 'Minimum length of compressed read sequence')
+	parsers.add_argument('-continue', dest = 'u', type = bool, default = False, help = 'Continue the work from last step using -continue 1')
 	return parsers
 
