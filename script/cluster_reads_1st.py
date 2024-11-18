@@ -206,7 +206,7 @@ def compare_file2file(minimizer_record_file1, minimizer_record_file2, outdir):
 			if query_mini_3mer in mini_mer_index:
 				match_count.update(list(set(mini_mer_index[query_mini_3mer])))
 		match_count_lst = list(match_count.most_common())
-		match_num_cutoff = 1 + int(0.2 * (len(list(set(mini_3mer_lst))) - discard_mer_num))
+		match_num_cutoff = 1 + int(0.1 * (len(list(set(mini_3mer_lst))) - discard_mer_num))
 
 		query_seq = seq_dic2[line_num]
 		query_7mer_set = set([query_seq[i : i + 7] for i in range(len(query_seq) - 7 + 1)])
@@ -239,7 +239,7 @@ def compare_file2file(minimizer_record_file1, minimizer_record_file2, outdir):
 			if query_mini_3mer in mini_mer_index:
 				match_count.update(list(set(mini_mer_index[query_mini_3mer])))
 		match_count_lstv = list(match_count.most_common())
-		match_num_cutoffv = 1 + int(0.2 * (len(list(set(mini_3mer_lst))) - discard_mer_num))
+		match_num_cutoffv = 1 + int(0.1 * (len(list(set(mini_3mer_lst))) - discard_mer_num))
 
 		query_seqv = seq_dic2[-line_num]
 		query_7mer_setv = set([query_seq[i : i + 7] for i in range(len(query_seqv) - 7 + 1)])
@@ -458,7 +458,7 @@ def compare_file_self(minimizer_record_file1, r_n, outdir):
 
 		match_count_lst = list(match_count.most_common())
 		#print('match_info', len(list(set(mini_3mer_lst))), discard_mer_num)
-		match_num_cutoff = 1 + int(0.2 * (len(list(set(mini_3mer_lst))) - discard_mer_num))
+		match_num_cutoff = 1 + int(0.1 * (len(list(set(mini_3mer_lst))) - discard_mer_num))
 		for match_result in match_count_lst:
 			ref_record_num, ref_match_num = match_result
 			if ref_record_num == line_num:
@@ -489,7 +489,7 @@ def compare_file_self(minimizer_record_file1, r_n, outdir):
 			if query_mini_3mer in mini_mer_index:
 				match_count.update(list(set(mini_mer_index[query_mini_3mer])))
 		match_count_lstv = list(match_count.most_common())
-		match_num_cutoffv = 1 + int(0.2 * (len(list(set(mini_3mer_lst))) - discard_mer_num))
+		match_num_cutoffv = 1 + int(0.1 * (len(list(set(mini_3mer_lst))) - discard_mer_num))
 		#print('match_info', len(list(set(mini_3mer_lst))), discard_mer_num)
 
 		query_seqv = seq_dic[-line_num]
