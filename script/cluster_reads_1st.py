@@ -78,7 +78,7 @@ def generate_2mer(minimizer1, minimizer2):
 	return mini_2mer
 
 def generate_3mer(minimizer1, minimizer2, minimizer3):
-	#mini_3mer = int(minimizer1) * (10**10) + int(minimizer2) * (10**5) + int(minimizer3)
+	#mini_3mer = int(minimizer1) * (10**12) + int(minimizer2) * (10**6) + int(minimizer3)
 	#mini_3mer = ''.join((minimizer1, '.', minimizer2, '.', minimizer3))
 	#mini_3mer = int(minimizer1) + int(minimizer2) + int(minimizer3)
 	mini_3mer = int(''.join((minimizer1, '0' * max(0, 6 - len(minimizer2)),  minimizer2, '0' * max(0, 6 - len(minimizer3)), minimizer3)))
