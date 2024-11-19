@@ -266,7 +266,7 @@ def identify_sv_sites(seq_aln_matrix):
 						same_kmer_lst.append(sv_kmer)
 			if len(same_kmer_lst) > 1:
 				same_kmer_count = Counter(same_kmer_lst).most_common(1)
-				if same_kmer_count[0][1] > max(2, len(site_lst_clean) * 0.05):#more than 2 kmers sopport and abundance > 5 %
+				if same_kmer_count[0][1] > max(1, len(site_lst_clean) * 0.05):#more than 2 kmers sopport and abundance > 5 %
 					sv_site_lst.append((site_nt, sv_nt_lst))
 		if len(sv_site_lst) > 1:
 			sv_lst.append((site_lo, sv_site_lst))
