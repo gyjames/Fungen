@@ -20,7 +20,7 @@ Parameters
    
 	  -i F   Define the input metatranscriptome fastq file. (default: False)
    
-   -t T   Threads used for clustering. (default: 10)
+          -t T   Threads used for clustering. (default: 10)
    
 	  -k K   Minimizer size (default: 11)
    
@@ -38,9 +38,9 @@ Parameters
 
 Outputs:
 
-cluster_results.txt:          The final clustering results
+          cluster_results.txt:          The final clustering results
 
-cluster_represents.fasta:     Reference sequences for gene clusters
+          cluster_represents.fasta:     Reference sequences for gene clusters
 
-corrected_seqs.fastq:         Corrected reads
+          corrected_seqs.fastq:         Corrected reads
 
