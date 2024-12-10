@@ -39,6 +39,8 @@ Parameters
 Outputs:
 
 cluster_results.txt:          The final clustering results
+
 cluster_represents.fasta:     Reference sequences for gene clusters
+
 corrected_seqs.fastq:         Corrected reads
 
