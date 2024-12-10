@@ -13,9 +13,12 @@ Package install
 3)	pip install -r ./requirements.txt
 
 Help infomation
+
  	python ./FunGen -h
 
 Parameters
+
+
 	  -h, --help  show this help message and exit 
    
 	  -i F   Define the input metatranscriptome fastq file. (default: False)
