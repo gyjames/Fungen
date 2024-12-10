@@ -20,7 +20,7 @@ Parameters
    
 	  -i F   Define the input metatranscriptome fastq file. (default: False)
    
-          -t T   Threads used for clustering. (default: 10)
+	  -t T   Threads used for clustering. (default: 10)
    
 	  -k K   Minimizer size (default: 11)
    
