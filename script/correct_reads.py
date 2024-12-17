@@ -584,28 +584,42 @@ def recombine_corrected_read_cluster(corrected_read_cluster_lst):
 	return corrected_read_cluster_lst_recombine
 
 
-def compare_represents_mp(rep_info):
+def compare_represents_mp_bak(rep_info):
 	cluster_n, repseq_n, cluster_m, repseq_m = rep_info
 	similarity, equal_max = two_seq_similarity_equal_max(repseq_n, repseq_m)
 	return cluster_n, cluster_m, similarity, equal_max
 
+def compare_represents_mp(rep_info):
+	cluster_n, cluster_m = rep_info
+	repseq_n = CORRECTED_READ_CLUSTER_LST_P[cluster_n]
+	repseq_m = CORRECTED_READ_CLUSTER_LST_P[cluster_m]
+	similarity, equal_max = two_seq_similarity_equal_max(repseq_n, repseq_m)
+	return cluster_n, cluster_m, similarity, equal_max
+
+def initializer_recombine_corrected_read_cluster_mp(corrected_read_cluster_lst_p):
+	global CORRECTED_READ_CLUSTER_LST_P
+	CORRECTED_READ_CLUSTER_LST_P = corrected_read_cluster_lst_p
+
 def recombine_corrected_read_cluster_mp(corrected_read_cluster_lst, threads):
 	corrected_read_cluster_lst_recombine = []
 	compare_info_mp = []
+	corrected_read_cluster_lst_p = [r[0][1] for r in corrected_read_cluster_lst]
+	compare_dic = {}
 	for n in range(len(corrected_read_cluster_lst)):
 		for m in range(len(corrected_read_cluster_lst)):
-			compare_info_mp.append((n, corrected_read_cluster_lst[n][0][1], m, corrected_read_cluster_lst[m][0][1]))
-	
-	p = mp.Pool(processes = threads)
-	rep_compare_results = p.map(compare_represents_mp, compare_info_mp)
-	p.close()
-	p.join()
+			#compare_info_mp.append((n, corrected_read_cluster_lst[n][0][1], m, corrected_read_cluster_lst[m][0][1]))
+			compare_info_mp.append((n, m))
+			if len(compare_info_mp) == 10 ** 6 or (n + 1 == len(corrected_read_cluster_lst) and m + 1 == len(corrected_read_cluster_lst)):
+				p = mp.Pool(processes = threads, initializer = initializer_recombine_corrected_read_cluster_mp(corrected_read_cluster_lst_p))
+				rep_compare_results = p.map(compare_represents_mp, compare_info_mp)
+				p.close()
+				p.join()
 
-	compare_dic = {}
-	for cluster_n, cluster_m, similarity, equal_max in rep_compare_results:
-		if cluster_n not in compare_dic:
-			compare_dic[cluster_n] = {}
-		compare_dic[cluster_n][cluster_m] = (similarity, equal_max)
+				for cluster_n, cluster_m, similarity, equal_max in rep_compare_results:
+					if cluster_n not in compare_dic:
+						compare_dic[cluster_n] = {}
+					compare_dic[cluster_n][cluster_m] = (similarity, equal_max)
+				compare_info_mp = []
 	raw_i_dic = {}
 	for read_cluster_i in range(len(corrected_read_cluster_lst)):
 		read_cluster = corrected_read_cluster_lst[read_cluster_i]
