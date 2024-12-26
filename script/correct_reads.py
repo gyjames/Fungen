@@ -609,13 +609,15 @@ def recombine_corrected_read_cluster_mp(corrected_read_cluster_lst, threads):
 		for m in range(len(corrected_read_cluster_lst)):
 			#compare_info_mp.append((n, corrected_read_cluster_lst[n][0][1], m, corrected_read_cluster_lst[m][0][1]))
 			compare_info_mp.append((n, m))
-			if len(compare_info_mp) == 10 ** 6 or (n + 1 == len(corrected_read_cluster_lst) and m + 1 == len(corrected_read_cluster_lst)):
+			if len(compare_info_mp) == 10 ** 7 or (n + 1 == len(corrected_read_cluster_lst) and m + 1 == len(corrected_read_cluster_lst)):
 				p = mp.Pool(processes = threads, initializer = initializer_recombine_corrected_read_cluster_mp(corrected_read_cluster_lst_p))
 				rep_compare_results = p.map(compare_represents_mp, compare_info_mp)
 				p.close()
 				p.join()
 
 				for cluster_n, cluster_m, similarity, equal_max in rep_compare_results:
+					if similarity <= 0.99 and equal_max <= 100:
+						continue
 					if cluster_n not in compare_dic:
 						compare_dic[cluster_n] = {}
 					compare_dic[cluster_n][cluster_m] = (similarity, equal_max)
@@ -627,6 +629,10 @@ def recombine_corrected_read_cluster_mp(corrected_read_cluster_lst, threads):
 		best_hit_cluster, best_similarity, longest_equal = 0, 0, 0
 		for recombined_read_cluster_i in range(len(corrected_read_cluster_lst_recombine)):
 			raw_recombined_read_cluster_i = raw_i_dic[recombined_read_cluster_i]
+			if read_cluster_i not in compare_dic:
+				continue
+			if raw_recombined_read_cluster_i not in compare_dic[read_cluster_i]:
+				continue
 			similarity, equal_max = compare_dic[read_cluster_i][raw_recombined_read_cluster_i]
 			if similarity > best_similarity:
 				best_similarity = similarity
